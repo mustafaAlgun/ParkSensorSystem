@@ -1,0 +1,134 @@
+; GPIO initialization is done here.
+
+GPIO_PORTF_DATA 	EQU 0x400253FC
+GPIO_PORTF_DIR 		EQU 0x40025400
+GPIO_PORTF_AFSEL 	EQU 0x40025420
+GPIO_PORTF_DEN 		EQU 0x4002551C
+GPIO_PORTF_PUR		EQU	0X40025510
+GPIO_PORTF_PDR		EQU	0X40025514
+SYSCTL_RCGCGPIO 	EQU 0x400FE608
+GPIO_LOCKF 			EQU 0x40025520
+PORTF_COMMIT 		EQU 0x40025524
+GPIO_PORTF_IS		EQU 0x40025404
+GPIO_PORTF_IBE		EQU 0x40025408
+GPIO_PORTF_IEV		EQU 0x4002540C
+GPIO_PORTF_IM		EQU 0x40025410
+GPIO_PORTF_ICR		EQU 0x4002541C
+GPIO_PORTF_RIS		EQU 0x40025414
+GPIO_PORTF_MIS		EQU 0x40025418
+	
+;Nested Vector Interrupt Controller registers
+NVIC_EN0			EQU 0xE000E100 ; IRQ 0 to 31 Set Enable Register
+NVIC_PRI7			EQU 0xE000E41C ; IRQ 16 to 19 Priority Register
+;
+GPIO_PORTB_DATA 	EQU 0x400053FC 
+GPIO_PORTB_DIR 		EQU 0x40005400
+GPIO_PORTB_AFSEL 	EQU 0x40005420
+GPIO_PORTB_DEN 		EQU 0x4000551C
+;
+GPIO_PORTC_DATA 	EQU 0x400063FC 
+GPIO_PORTC_DIR 		EQU 0x40006400
+GPIO_PORTC_AFSEL 	EQU 0x40006420
+GPIO_PORTC_DEN 		EQU 0x4000651C
+;**************************************************
+
+			AREA	routines, READONLY, CODE
+			THUMB
+			EXTERN DELAY
+			EXPORT	INIT_GPIO		; Make available
+				
+;**************************************************				
+			
+INIT_GPIO	PROC
+			PUSH 	{LR}	
+			
+			;////////// PORTF CONFIG
+			LDR R1,=SYSCTL_RCGCGPIO
+			LDR R0,[R1]
+			ORR R0,R0,#0x20 ; PORT F ACTIVATED
+			STR R0,[R1]
+			NOP ; WAIT FOR GPIO CLOCK STABILIZATION
+			NOP ; WAIT FOR GPIO CLOCK STABILIZATION
+			NOP
+			LDR R1, =GPIO_LOCKF
+			LDR R0, =0x4C4F434B
+			STR R0, [R1]
+			LDR R1, =PORTF_COMMIT
+			MOV R0, #0x01 
+			STR R0, [R1]
+
+			LDR R1,=GPIO_PORTF_DIR ; CONFIGURATION OF PORTF STARTS HERE!
+			LDR R0,[R1]
+			ORR R0,#0x0E 
+			BIC R0,#0x11
+			STR R0,[R1]
+			LDR R1,=GPIO_PORTF_AFSEL
+			LDR R0,[R1]
+			BIC R0,#0x0E
+			STR R0,[R1]
+			LDR R1,=GPIO_PORTF_DEN
+			LDR R0,[R1]
+			ORR R0,#0x1F
+			STR R0,[R1]
+			LDR	R1, =GPIO_PORTF_PUR
+			MOV	R0,#0X11			
+			STR	R0,[R1]				
+			
+			LDR R1, =GPIO_PORTF_IS
+			LDR R2, =GPIO_PORTF_IBE
+			LDR R3, =GPIO_PORTF_IEV
+			LDR R4, =GPIO_PORTF_IM
+			LDR R5, =GPIO_PORTF_ICR
+			MOV R0, #0x00
+			STR R0, [R1] ; PF is edge-sensitive
+			STR R0, [R2] ; PF is not both edges
+			STR R0, [R3] ;PF4,PF0 is falling edge
+			MOV R0, #0x11
+			STR R0, [R4] ; enable interrupt for PF4,PF0
+			STR R0, [R5] ; clear interrupt flag for PF4,PF0			
+			
+			LDR R1, =GPIO_PORTF_ICR
+			MOV R0,#0x11
+			STR R0,[R1] ; clear interrupt flag for SW1 AND SW2
+		
+; Interrupts 28-31 are handled by NVIC register PRI7.
+; Interrupt 30 is controlled by bits 23:21 of PRI7.
+; set NVIC interrupt 30 to priority 2
+			LDR R1, =NVIC_PRI7
+			LDR R2, [R1]
+			AND R2, R2, #0xFF00FFFF ; clear interrupt 30 priority
+			ORR R2, R2, #0x00400000 ; set interrupt 30 priority to 2
+			STR R2, [R1]
+; NVIC has to be enabled
+; Interrupts 0-31 are handled by NVIC register EN0
+; Interrupt 30 is controlled by bit 30
+; enable interrupt 30 in NVIC
+			LDR R1, =NVIC_EN0
+			MOVT R2, #0x4000 ; set bit 30 to enable interrupt 30
+			STR R2, [R1]
+			
+			;//////////// PORTC CONFIG FOR MOTOR
+			LDR 	R1,=SYSCTL_RCGCGPIO
+			LDR 	R0,[R1]
+			ORR 	R0,R0,#0x04			; PORTC is activated.[0100]
+			STR 	R0,[R1]
+			NOP						; WAIT FOR GPIO CLOCK STABILIZATION
+			NOP						; WAIT FOR GPIO CLOCK STABILIZATION
+			NOP 					; WAIT FOR GPIO CLOCK STABILIZATION		
+			LDR 	R1,=GPIO_PORTC_DIR 	; CONFIGURATION OF PORTB STARTS HERE!
+			LDR 	R0,[R1]
+			ORR 	R0,#0XF0			;ASSIGNS LATS FOUR BIT AS OUTPUT
+			STR 	R0,[R1]
+			LDR 	R1,=GPIO_PORTC_AFSEL
+			LDR 	R0,[R1]
+			BIC 	R0,#0xF0
+			STR 	R0,[R1]
+			LDR 	R1,=GPIO_PORTC_DEN
+			LDR 	R0,[R1]
+			ORR 	R0,#0xF0
+			STR 	R0,[R1] 				;END OF PORTC CONFIG
+
+			ENDP
+			POP		{LR}
+			BX		LR		
+			END

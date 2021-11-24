@@ -1,0 +1,19 @@
+--cpu=Cortex-M4.fp.sp
+".\objects\delay100.o"
+".\objects\main.o"
+".\objects\startup.o"
+".\objects\init_gpio.o"
+".\objects\init_adc.o"
+".\objects\my_gpio_portf_handler.o"
+".\objects\fullstepmode.o"
+".\objects\measure_pulse_width.o"
+".\objects\my_motor_handler.o"
+".\objects\pwm_and_motor_init.o"
+".\objects\convert_print.o"
+".\objects\bar_selection.o"
+".\objects\nokia_5110_lcd.o"
+".\objects\adc_threshold.o"
+".\objects\screen_outputs.o"
+--ro-base 0x00000000 --entry 0x00000000 --rw-base 0x20000000 --entry Reset_Handler --first __Vectors --strict --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list ".\Listings\EE447_Project.map" -o .\Objects\EE447_Project.axf
